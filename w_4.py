@@ -102,6 +102,7 @@ def optimal_hidden_path(sequence, emission_matrix, transition_matrix, states, al
 	
 	for u, v, weight in G.edges.data():
 		if u == 0:
+			G.edges[u, v]['weight'] = 0.5*emission_matrix[node_state[v]][sequence[0]]
 			continue
 		if v == number_of_nodes - 1:
 			break
@@ -113,7 +114,7 @@ def optimal_hidden_path(sequence, emission_matrix, transition_matrix, states, al
 			i = (v//2)
 		G.edges[u, v]['weight'] = transition_matrix[state_u][state_v]*emission_matrix[state_v][sequence[i]]
 	
-	#assign score to nodes
+	#assign scores to nodes
 	G.nodes[0]['score'] = 1
 
 	for node, attr in G.nodes.data():
@@ -147,6 +148,87 @@ def optimal_hidden_path(sequence, emission_matrix, transition_matrix, states, al
 	backtrack.remove('source')
 	return ''.join(backtrack)
 
+def outcome_likelihood_problem(sequence, emission_matrix, transition_matrix, states, alphabet_x):
+	G = nx.DiGraph()
+	number_of_rows = len(states)
+	number_of_columns = len(sequence)
+	number_of_nodes = number_of_rows*number_of_columns + 2
+
+	#add nodes
+	for i in range(number_of_nodes):
+		#print(i)
+		if i == 0:
+			G.add_node(i, state = 'source', forward = 0)
+		elif i == number_of_nodes - 1:
+			G.add_node(i, state = 'sink', forward = 0)
+		elif i%2 == 0:
+			G.add_node(i, state = 'B', forward = 0)
+		else:
+			G.add_node(i, state = 'A', forward = 0)
+
+	#add edges
+	for i in range(number_of_nodes):
+		if i == 0:
+			G.add_edge(i, i+1, weight = 0.5)
+			G.add_edge(i, i+2, weight = 0.5)
+		elif i == number_of_nodes - 1:
+			break
+		elif i == number_of_nodes - 3 or i == number_of_nodes - 2:
+			G.add_edge(i, number_of_nodes - 1, weight = 1)
+		elif i%2 == 0:
+			G.add_edge(i, i+1, weight = 0)
+			G.add_edge(i, i+2, weight = 0)
+		else:
+			G.add_edge(i, i+2, weight = 0)
+			G.add_edge(i, i+3, weight = 0)
+
+	#assign weights to edges
+	G.nodes[0]['forward'] = 1
+	i = 1
+	node_state = nx.get_node_attributes(G, 'state')
+	
+	for u, v, weight in G.edges.data():
+		if u == 0:
+			G.edges[u, v]['weight'] = 0.5*emission_matrix[node_state[v]][sequence[0]]
+			#print(G.edges[u, v]['weight'])
+			continue
+		if v == number_of_nodes - 1:
+			break
+		state_u = node_state[u]
+		state_v = node_state[v]
+		if v%2 == 0:
+			i = (v//2) - 1
+		else:
+			i = (v//2)
+		G.edges[u, v]['weight'] = transition_matrix[state_u][state_v]*emission_matrix[state_v][sequence[i]]
+	
+	#assign forward to nodes
+	for node, attr in G.nodes.data():
+		if node == 1 or node == 2:
+			G.nodes[node]['forward'] = G.edges[0, node]['weight']*G.nodes[0]['forward']
+			continue
+		elif node == 0:
+			continue
+
+		incoming_edges = G.in_edges(node)
+		wt = 0
+		for edge in incoming_edges:
+			wt += G.edges[edge[0], node]['weight']*G.nodes[edge[0]]['forward']
+		G.nodes[node]['forward'] = wt
+
+	return G.nodes[number_of_nodes - 1]['forward']
+
+
+sequence = 'zyzxzyxxxxzyzyxzzyxyxyyzzxzzzxzxxyzxyzzyxzyzxzyzzzxxyxzzzyzxzxzzyxzzzxxzxxyyzxyzxxzyzzyzyxyxyzxyxzzy'
+file = 'transition.txt'
+states = 'A B'.split(' ')
+alphabet_x = 'x y z'.split(' ')
+transition_matrix = input_transition(file, states)
+file = 'emission.txt'
+emission_matrix = input_emission(file, states, alphabet_x)
+print(outcome_likelihood_problem(sequence, emission_matrix, transition_matrix, states, alphabet_x))
+
+'''
 sequence = 'yyxxxzzyzyzxzyyyxyyxzzyzyzxxzzxyzyzxxxzyzzxxyxyzxyxyxzxzyyzyxyxzxyzzyzxzyzxzzxzyzzxxxyxyyyxyyzzzyxyx'
 file = 'transition.txt'
 states = 'A B'.split(' ')
@@ -155,6 +237,7 @@ transition_matrix = input_transition(file, states)
 file = 'emission.txt'
 emission_matrix = input_emission(file, states, alphabet_x)
 print(optimal_hidden_path(sequence, emission_matrix, transition_matrix, states, alphabet_x))
+'''
 '''
 file = 'hmm.txt'
 path = 'BABAAABABBBBABAABBABAAABABBABAAAABAABABBBAAABAAAAB'
