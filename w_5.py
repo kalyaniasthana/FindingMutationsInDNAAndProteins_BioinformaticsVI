@@ -83,7 +83,7 @@ def ranges(nums):
     edges = iter(nums[:1] + sum(gaps, []) + nums[-1:])
     return list(zip(edges, edges))
 
-def profile_hmm(theta, strings, alphabet):
+def profile_hmm(theta, strings, alphabet, pseudocount = 0):
 	#check which columns are to be removed
 	ratios = {}
 	total_number_of_columns = len(strings[0])
@@ -101,7 +101,7 @@ def profile_hmm(theta, strings, alphabet):
 			removed_columns.append(column_number)
 
 	#make hmm graph
-	#G = nx.DiGraph()
+	G = nx.DiGraph()
 	#number of match states = total number of columns - length of removed_columns (node names - m1, m2, ..., mn)
 	#number of insertion states = number of match states + 1 (i1, i2, ..., in)
 	#number of deletion states = number of match states (d1, d2, ..., dn)
@@ -117,7 +117,6 @@ def profile_hmm(theta, strings, alphabet):
 		nodes_delete.append('D' + str(i+1))
 	nodes_insert.append('I' + str(number_of_match_states))
 	nodes = ['S', 'E'] + nodes_match + nodes_insert + nodes_delete
-	'''
 	G.add_nodes_from(nodes)
 	#add edges
 	G.add_edge('S', 'M1')
@@ -129,31 +128,40 @@ def profile_hmm(theta, strings, alphabet):
 
 	for node in nodes:
 		for _node in nodes:
-			if node[0] == 'M' and _node[0] == 'M' and (int(node[1]) < int(_node[1])):
+			if node[0] == 'M' and _node[0] == 'M' and (int(node[1]) == int(_node[1]) - 1):
 				G.add_edge(node, _node)
-			elif node[0] == 'I' and (node == _node):
-				G.add_edge(node, _node)
-			elif node[0] == 'D' and _node[0] == 'D' and (int(node[1]) == int(_node[1]) - 1):
-				G.add_edge(node, _node)
-			elif node[0] == 'D' and _node[0] == 'M' and (int(node[1]) == int(_node[1]) - 1):
-				G.add_edge(node, _node)
-			elif node[0] == 'M' and _node[0] == 'D' and (int(node[1]) == int(_node[1]) - 1):
-				G.add_edge(node, _node)
-			elif node[0] == 'I' and _node[0] == 'D' and ((int(node[1]) == int(_node[1]) - 1) or (int(node[1]) == int(_node[1]))):
-				G.add_edge(node, _node)
-			elif node[0] == 'I' and _node[0] == 'M' and (int(node[1]) == int(_node[1]) - 1):
-				G.add_edge(node, _node)
+
 			elif node[0] == 'M' and _node[0] == 'I' and (int(node[1]) == int(_node[1])):
 				G.add_edge(node, _node)
-	'''
 
+			elif node[0] == 'M' and _node[0] == 'D' and (int(node[1]) == int(_node[1]) - 1):
+				G.add_edge(node, _node)
+
+			elif node[0] == 'I' and (node == _node):
+				G.add_edge(node, _node)
+
+			elif node[0] == 'I' and _node[0] == 'D' and (int(node[1]) == int(_node[1]) - 1):
+				G.add_edge(node, _node)
+
+			elif node[0] == 'I' and _node[0] == 'M' and (int(node[1]) == int(_node[1]) - 1):
+				G.add_edge(node, _node)
+			
+			elif node[0] == 'D' and _node[0] == 'D' and (int(node[1]) == int(_node[1]) - 1):
+				G.add_edge(node, _node)
+
+			elif node[0] == 'D' and _node[0] == 'M' and (int(node[1]) == int(_node[1]) - 1):
+				G.add_edge(node, _node)
+
+			elif node[0] == 'D' and _node[0] == 'I' and (int(node[1]) == int(_node[1])):
+				G.add_edge(node, _node)
+			
+			
 	states = ['S', 'I0']
 	for i in range(len(nodes_match)):
 		states.append(nodes_match[i])
 		states.append(nodes_delete[i])
 		states.append(nodes_insert[i+1])
 	states.append('E')
-
 
 
 	#emission matrix
@@ -175,9 +183,9 @@ def profile_hmm(theta, strings, alphabet):
 				emission_matrix[y][string[x]] += 1
 				count[y] += 1
 		for item in emission_matrix[y]:
-			emission_matrix[y][item] = my_round(emission_matrix[y][item]/count[y], 3)
-			if emission_matrix[y][item] == 0.0:
-				emission_matrix[y][item] = int(emission_matrix[y][item])
+			emission_matrix[y][item] = emission_matrix[y][item]/count[y]
+			#if emission_matrix[y][item] == 0.0:
+			#	emission_matrix[y][item] = int(emission_matrix[y][item])
 
 	#emission values for insert states
 	r = ranges(removed_columns)
@@ -221,9 +229,9 @@ def profile_hmm(theta, strings, alphabet):
 					count[y] += 1
 					#print(emission_matrix[y][string[position]], y, string[position])
 		for item in emission_matrix[y]:
-			emission_matrix[y][item] = my_round(emission_matrix[y][item]/count[y], 3)
-			if emission_matrix[y][item] == 0.0:
-				emission_matrix[y][item] = int(emission_matrix[y][item])
+			emission_matrix[y][item] = emission_matrix[y][item]/count[y]
+			#if emission_matrix[y][item] == 0.0:
+			#	emission_matrix[y][item] = int(emission_matrix[y][item])
 
 	#transition matrix
 	transition_matrix = {}
@@ -272,19 +280,61 @@ def profile_hmm(theta, strings, alphabet):
 	for state in transition_matrix:
 		for value in transition_matrix[state]:
 			if count[state] != 0:
-				transition_matrix[state][value] = my_round(transition_matrix[state][value]/count[state], 3)
-				if transition_matrix[state][value] == 0.0:
-					transition_matrix[state][value] = int(transition_matrix[state][value])
+				transition_matrix[state][value] = transition_matrix[state][value]/count[state]
+				#if transition_matrix[state][value] == 0.0:
+				#	transition_matrix[state][value] = int(transition_matrix[state][value])
 	#print(merge, merge_to_insert)
+
+	#pseudocount
+	if pseudocount > 0:
+		#modifying emission_matrix
+		for state in emission_matrix:
+			s = 0
+			if state[0] == 'M' or state[0] == 'I':
+				for x in alphabet:
+					emission_matrix[state][x] += pseudocount
+					s += emission_matrix[state][x]
+			if s != 0:
+				for x in alphabet:
+					emission_matrix[state][x] = my_round(emission_matrix[state][x]/s, 3)
+
+		#modifying transition_matrix
+		
+		for state in transition_matrix:
+			s = 0
+			for edge in G.edges(state):
+				#print(state, '|', edge)
+				transition_matrix[edge[0]][edge[1]] += pseudocount
+				s += transition_matrix[edge[0]][edge[1]]
+			if s!= 0:
+				for state_ in transition_matrix[state]:
+					transition_matrix[state][state_] = my_round(transition_matrix[state][state_]/s, 3)
+					if transition_matrix[state][state_] == 0.0:
+						transition_matrix[state][state_] = int(transition_matrix[state][state_])
+		for edge in transition_matrix['E']:
+			transition_matrix['E'][edge] = int(transition_matrix['E'][edge])
+	else:
+		for state in emission_matrix:
+			for x in alphabet:
+				emission_matrix[state][x] = my_round(emission_matrix[state][x], 3)
+				if emission_matrix[state][x] == 0.0:
+					emission_matrix[state][x] = int(emission_matrix[state][x])
+			for state_ in states:
+				transition_matrix[state][state_] = my_round(transition_matrix[state][state_], 3)
+				if transition_matrix[state][state_] == 0.0:
+					transition_matrix[state][state_] = int(transition_matrix[state][state_])
+
+
 
 	return states, transition_matrix, emission_matrix
 
 
 file = 'alignment.txt'
 strings = input_alignment(file)
+pseudocount = 0.01
 alphabet = 'A B C D E'.split(' ')
-theta = 0.311
-states, transition_matrix, emission_matrix = profile_hmm(theta, strings, alphabet)
+theta = 0.38
+states, transition_matrix, emission_matrix = profile_hmm(theta, strings, alphabet, pseudocount)
 
 #HOW DO I FORMAT THIS UGHHHHHHUHHSDKHDKJHKSHKH K SO IRRITATTINGGGGGGGJSGDJHGJGHJbjhn!!!!
 value = ''
