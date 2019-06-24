@@ -101,7 +101,7 @@ def profile_hmm(theta, strings, alphabet):
 			removed_columns.append(column_number)
 
 	#make hmm graph
-	G = nx.DiGraph()
+	#G = nx.DiGraph()
 	#number of match states = total number of columns - length of removed_columns (node names - m1, m2, ..., mn)
 	#number of insertion states = number of match states + 1 (i1, i2, ..., in)
 	#number of deletion states = number of match states (d1, d2, ..., dn)
@@ -117,6 +117,7 @@ def profile_hmm(theta, strings, alphabet):
 		nodes_delete.append('D' + str(i+1))
 	nodes_insert.append('I' + str(number_of_match_states))
 	nodes = ['S', 'E'] + nodes_match + nodes_insert + nodes_delete
+	'''
 	G.add_nodes_from(nodes)
 	#add edges
 	G.add_edge('S', 'M1')
@@ -144,6 +145,7 @@ def profile_hmm(theta, strings, alphabet):
 				G.add_edge(node, _node)
 			elif node[0] == 'M' and _node[0] == 'I' and (int(node[1]) == int(_node[1])):
 				G.add_edge(node, _node)
+	'''
 
 	states = ['S', 'I0']
 	for i in range(len(nodes_match)):
@@ -298,42 +300,6 @@ for state in states:
 	l += '\t'.join([str(emission_matrix[state][x]) for x in alphabet])
 	value += l
 print(value)
-'''
-    for i,s in enumerate(state_name) :
-         l = s + '\t'
-         l += '\t'.join([format("%.3g" % __transition[i,j]) if __transition[i,j] != 1 else '1.0' for j in range(len(state_name))])
-         ret += l+ '\n'
-    ret += '--------\n'
-    ret += '\t' + '\t'.join(alphabet)
-    for i,s in enumerate(state_name) :
-         l = '\n'+ s + '\t'
-         l += '\t'.join([format("%.3g" % __emission[i,j]) if __emission[i,j] != 1 else '1.0' for j in range(len(alphabet))])
-         ret += l
-
-
-
-
-
-for state in states:
-	print('\t' + state, end = '')
-print('')
-for state in transition_matrix:
-	print(state + '\t', end = '')
-	for _state in transition_matrix[state]:
-		print(transition_matrix[state][_state], '\t', end = '')
-	print('')
-
-print('--------')
-
-for x in alphabet:
-	print('\t' + x, end = '')
-print('')
-for state in emission_matrix:
-	print(state + '\t', end = '')
-	for x in emission_matrix[state]:
-		print(emission_matrix[state][x], '\t', end = '')
-	print('')
-'''
 
 '''
 sequence = 'zxzyyxyxyxyyyyxzzzzyyzzxzzxxzyyzzyzzxxyxzyxyyyyzxzzyzzzyyxzyxxyxyzxyxzzyyyxyyzzyyzxzxzyzyxyxyzyxzyzz'
