@@ -4,7 +4,14 @@ import networkx as nx
 import copy
 from itertools import groupby
 from operator import itemgetter
+import sys
+import numpy as np
+from w_4 import *
 
+
+def max_with_index(my_list):
+	index, value =  max(enumerate(my_list), key=itemgetter(1))
+	return index, value
 
 #from stackoverflow
 def my_round(n, ndigits):
@@ -68,6 +75,90 @@ def hmm_parameter_estimation(sequence, alphabet, path, states):
 			else:
 				emission_matrix[state][x] = my_round(emission_matrix[state][x]/count[state], 3)
 	return transition_matrix, emission_matrix
+
+def hmm_hidden_path(sequence, emission_matrix, transition_matrix, states, alphabet):
+	#node scores and backtrac matrix
+    scores = {} 
+    backtrack = {} 
+    for state in states:
+        scores[state] = [0]*len(sequence)
+        backtrack[state] = [0]*len(sequence)
+
+   
+    for state in states:
+        scores[state][0] = 1*emission_matrix[state][sequence[0]]
+
+
+    for i in range(1, len(sequence)):
+    	for state in states:
+    		weights = []
+    		x = []
+    		for state_ in states:
+    			weights.append(scores[state_][i-1]*transition_matrix[state_][state]*emission_matrix[state][sequence[i]])
+    			x.append((scores[state_][i-1]*transition_matrix[state_][state]*emission_matrix[state][sequence[i]], state_))
+    		scores[state][i] = max(weights)
+    		for j in x:
+    			if j[0] == scores[state][i]:
+    				backtrack[state][i] = j[1]
+
+    #print(scores, backtrack)
+
+
+    #find max value at last position
+    weights = []
+    x = []
+    back = []
+    for state in scores:
+        weights.append(scores[state][len(sequence)-1])
+    for state in scores:
+        if scores[state][len(sequence)-1] == max(weights):
+        	current_node = state
+        	back.append(state)
+
+   
+    i = len(sequence)-1    
+    while i > 0:
+        for state in states:
+            if backtrack[current_node][i] == state:
+                current_node = state
+                back.append(state)
+                i -= 1
+                break
+            
+    return ''.join(back[::-1])
+
+def viterbi_learning(iterations, sequence, alphabet, states, transition_matrix, emission_matrix):
+
+	for i in range(iterations):
+		path = hmm_hidden_path(sequence, emission_matrix, transition_matrix, states, alphabet)
+		#print(path)
+		transition_matrix, emission_matrix = hmm_parameter_estimation(sequence, alphabet, path, states)
+		#print(transition_matrix, emission_matrix)
+	return transition_matrix, emission_matrix
+
+sequence = 'yxxzxxxyxyzxxxxzzxxxyxyzxzzxxxzxyzxxzyyyxzxzxzzyyxyzzzyzyxyxzxxzyyxyyyyzyxxyzyyzyxzyyyyxxzxzzzyyyxzx'
+file = 'transition.txt'
+states = 'A B'.split(' ')
+alphabet = 'x y z'.split(' ')
+transition_matrix = input_transition(file, states)
+file = 'emission.txt'
+emission_matrix = input_emission(file, states, alphabet)
+iterations = 100
+transition_matrix, emission_matrix = viterbi_learning(iterations, sequence, alphabet, states, transition_matrix, emission_matrix)
+value = ''
+value += '\t' + '\t'.join(states) + '\n'
+for state in states:
+	l = state + '\t'
+	l += '\t'.join([str(transition_matrix[state][state_]) for state_ in states])
+	value += l + '\n'
+value += '--------\n'
+value += '\t' + '\t'.join(alphabet)
+for state in states:
+	l = '\n' + state + '\t'
+	l += '\t'.join([str(emission_matrix[state][x]) for x in alphabet])
+	value += l
+print(value)
+
 
 def input_alignment(file):
 	strings = []
@@ -195,6 +286,8 @@ def profile_hmm(theta, strings, alphabet, pseudocount = 0):
 
 	merge.sort()
 
+	#print(merge)
+
 	#convert merge to insert states
 	merge_to_insert = []
 	m = copy.deepcopy(merge)
@@ -286,6 +379,7 @@ def profile_hmm(theta, strings, alphabet, pseudocount = 0):
 	#print(merge, merge_to_insert)
 
 	#pseudocount
+	#print(states)
 	if pseudocount > 0:
 		#modifying emission_matrix
 		for state in emission_matrix:
@@ -299,7 +393,79 @@ def profile_hmm(theta, strings, alphabet, pseudocount = 0):
 					emission_matrix[state][x] = my_round(emission_matrix[state][x]/s, 3)
 
 		#modifying transition_matrix
-		
+		from_S = ['I0', 'M1', 'D1']
+		s = 0
+		for state in from_S:
+			transition_matrix['S'][state] += pseudocount
+			s += transition_matrix['S'][state]
+		for state in from_S:
+			transition_matrix['S'][state] = my_round(transition_matrix['S'][state]/s, 3)
+
+		to_E = ['M' + str(number_of_match_states), 'I' + str(number_of_match_states), 'D' + str(number_of_match_states)]
+		s = {'M' + str(number_of_match_states) : 0, 'I' + str(number_of_match_states) : 0, 'D' + str(number_of_match_states) : 0}
+		for state in to_E:
+			if state == 'M' + str(number_of_match_states):
+				transition_matrix[state]['E'] += pseudocount
+				s['M' + str(number_of_match_states)] += transition_matrix[state]['E']
+				transition_matrix[state]['I' + str(number_of_match_states)] += pseudocount
+				s['M' + str(number_of_match_states)] += transition_matrix[state]['I' + str(number_of_match_states)]
+			elif state == 'I' + str(number_of_match_states):
+				transition_matrix['I' + str(number_of_match_states)]['E'] += pseudocount
+				s['I' + str(number_of_match_states)] += transition_matrix['I' + str(number_of_match_states)]['E']
+				transition_matrix['I' + str(number_of_match_states)]['I' + str(number_of_match_states)] += pseudocount
+				s['I' + str(number_of_match_states)] += transition_matrix['I' + str(number_of_match_states)]['I' + str(number_of_match_states)]
+			elif state == 'D':
+				transition_matrix['D' + str(number_of_match_states)]['E'] += pseudocount
+				s['D' + str(number_of_match_states)] += transition_matrix['D' + str(number_of_match_states)]['E']
+				transition_matrix['D' + str(number_of_match_states)]['I' + str(number_of_match_states)] += pseudocount
+				s['D' + str(number_of_match_states)] += transition_matrix['D' + str(number_of_match_states)]['I' + str(number_of_match_states)]
+		for state in to_E:
+			for item in transition_matrix[state]:
+				if s[state] != 0:
+					transition_matrix[state][item] =my_round(transition_matrix[state][item]/s[state], 3)		
+
+		#other states
+		for state in states:
+			if state == 'S':
+				continue
+			elif state in to_E:
+				continue
+			elif state[0] == 'I':
+				s = 0
+				to_states = ['I' + state[1], 'M' + str(int(state[1]) + 1), 'D' + str(int(state[1]) + 1)]
+				for state_ in to_states:
+					transition_matrix[state][state_] += pseudocount
+					s += transition_matrix[state][state_]
+				for state_ in to_states:
+					transition_matrix[state][state_] = my_round(transition_matrix[state][state_]/s, 3)
+
+
+	
+
+		print(states)
+		m, n = len(states), len(states)
+		for i in range(m-1):
+			a = int(min((i+1)/3*3+1, n))
+			b = int(min((i+1)/3*3+4, n))
+			for j in range(a, b):
+				x = states[i]
+				y = states[j]
+				print(x, y)
+				if x[0] == y[0] and x != y:
+					continue
+				transition_matrix[x][y] += pseudocount
+
+		for state in states:
+			s = 0
+			for state_ in states:
+				s += transition_matrix[state][state_] 
+			if s != 0:
+				for state_ in states:
+					transition_matrix[state][state_] = my_round(transition_matrix[state][state_]/s, 3)
+		'''
+
+
+		'''
 		for state in transition_matrix:
 			s = 0
 			for edge in G.edges(state):
@@ -313,6 +479,8 @@ def profile_hmm(theta, strings, alphabet, pseudocount = 0):
 						transition_matrix[state][state_] = int(transition_matrix[state][state_])
 		for edge in transition_matrix['E']:
 			transition_matrix['E'][edge] = int(transition_matrix['E'][edge])
+		'''
+
 	else:
 		for state in emission_matrix:
 			for x in alphabet:
@@ -324,17 +492,205 @@ def profile_hmm(theta, strings, alphabet, pseudocount = 0):
 				if transition_matrix[state][state_] == 0.0:
 					transition_matrix[state][state_] = int(transition_matrix[state][state_])
 
+	
 
 
-	return states, transition_matrix, emission_matrix
+
+	return nodes_match, nodes_delete, nodes_insert, states, transition_matrix, emission_matrix
 
 
+def sequence_alignment_with_profile_hmm(nodes_match, nodes_delete, nodes_insert, states, alphabet, transition_matrix, emission_matrix, x):
+
+	#use viterbi graph to find optimal hidden path
+	#construct viterbi graph
+	
+	states.pop(0)
+	states.pop(len(states) - 1)
+
+	m = int(len(states)/3) + 1 #number of rows 
+	n = len(x) + 1 #number of columns
+
+	#l = [666 for i in range(n)]
+	match_node_scores = np.empty(shape = (m, n), dtype = float)
+	delete_node_scores = np.empty(shape = (m, n), dtype = float)
+	insert_node_scores = np.empty(shape = (m, n), dtype = float)
+	#l = [None for i in range(n)]
+	match_backtrack = np.empty(shape = (m,n), dtype = tuple)
+	delete_backtrack = np.empty(shape = (m,n), dtype = tuple)
+	insert_backtrack = np.empty(shape = (m,n), dtype = tuple)
+
+	match_backtrack.fill(None)
+	delete_backtrack.fill(None)
+	insert_backtrack.fill(None)
+
+	match_node_scores.fill(666)
+	delete_node_scores.fill(666)
+	insert_node_scores.fill(666)
+
+	match_node_scores[:,0] = 777
+	delete_node_scores[0,:] = 777
+	match_node_scores[0,:] = 777
+	insert_node_scores[1:,0] = 777
+
+
+	#I0 row values
+	insert_node_scores[0, 1] = np.log(emission_matrix['I0'][x[0]]*transition_matrix['S']['I0'])
+	insert_backtrack[0, 1] = None
+	for k in range(2, n):
+		insert_node_scores[0, k] = insert_node_scores[0, k-1] + np.log(emission_matrix['I0'][x[k-1]]*transition_matrix['I0']['I0'])
+		insert_backtrack[0, k] = ('I', 0, k - 1)
+
+	#M1 row values
+	match_node_scores[1, 1] = np.log(emission_matrix['M1'][x[0]]*transition_matrix['S']['M1'])
+	match_backtrack[1, 1] = None
+	for k in range(2, n):
+		match_node_scores[1, k] = insert_node_scores[0, k-1] + np.log(emission_matrix['M1'][x[k-1]]*transition_matrix['I0']['M1'])
+		match_backtrack[1, k] = ('I', 0, k - 1)
+
+	#D1 row scores
+	delete_node_scores[1, 0] = np.log(1*transition_matrix['S']['D1'])
+	delete_backtrack[1, 0] = None
+	for k in range(1, n):
+		delete_node_scores[1, k] = insert_node_scores[0, k] + np.log(1*transition_matrix['I0']['D1'])
+		delete_backtrack[1, k] = ('I', 0, k)
+
+	#first column delete scores
+	#delete_node_scores[1, 0] = 0
+	#delete_backtrack[1, 0] = None
+	for l in range(2, m):
+		delete_node_scores[l, 0] = delete_node_scores[l-1, 0] + np.log(1*transition_matrix['D' + str(l-1)]['D' + str(l)])
+		delete_backtrack[l, 0] = ('D', l-1, 0)
+
+	#second column insert scores
+	for l in range(1, m):
+		insert_node_scores[l, 1] = delete_node_scores[l, 0] + np.log(emission_matrix['I' + str(l)][x[0]]*transition_matrix['D' + str(l)]['I' + str(l)])
+		insert_backtrack[l, 1] = ('D', l, 0)
+
+	#second column match scores
+	for l in range(2, m):
+		match_node_scores[l, 1] = delete_node_scores[l-1, 0] + np.log(emission_matrix['M' + str(l)][x[0]]*transition_matrix['D' + str(l-1)]['M' + str(l)])
+		match_backtrack[l, 1] = ('D', l-1, 0)
+
+	
+	def M_score_relation(l, k):
+
+		M = match_node_scores[l-1, k-1] + np.log(emission_matrix['M' + str(l)][x[k-1]]*transition_matrix['M' + str(l-1)]['M' + str(l)])
+		D = delete_node_scores[l-1, k-1] + np.log(emission_matrix['M' + str(l)][x[k-1]]*transition_matrix['D' + str(l-1)]['M' + str(l)])
+		I = insert_node_scores[l-1, k-1] + np.log(emission_matrix['M' + str(l)][x[k-1]]*transition_matrix['I' + str(l-1)]['M' + str(l)])
+		score = max(M, D, I)
+		if score == M:
+			return M, ('M', l-1, k-1)
+		elif score == D:
+			return D, ('D', l-1, k-1)
+		else:
+			return I, ('I', l-1, k-1)
+
+	def D_score_relation(l, k):
+
+		M = match_node_scores[l-1, k] + np.log(1*transition_matrix['M' + str(l-1)]['D' + str(l)])
+		D = delete_node_scores[l-1, k] + np.log(1*transition_matrix['D' + str(l-1)]['D' + str(l)])
+		I = insert_node_scores[l-1, k] + np.log(1*transition_matrix['I' + str(l-1)]['D' + str(l)])
+		score = max(M, D, I)
+		if score == M:
+			return M, ('M', l-1, k)
+		elif score == D:
+			return D, ('D', l-1, k)
+		else:
+			return I, ('I', l-1, k)
+
+	def I_score_relation(l, k):
+
+		M = match_node_scores[l, k-1] + np.log(emission_matrix['I' + str(l)][x[k-1]]*transition_matrix['M' + str(l)]['I' + str(l)])
+		D = delete_node_scores[l, k-1] + np.log(emission_matrix['I' + str(l)][x[k-1]]*transition_matrix['D' + str(l)]['I' + str(l)])
+		I = insert_node_scores[l, k-1] + np.log(emission_matrix['I' + str(l)][x[k-1]]*transition_matrix['I' + str(l)]['I' + str(l)])
+		score = max(M, D, I)
+		if score == M:
+			return M, ('M', l, k-1)
+		elif score == D:
+			return D, ('D', l, k-1)
+		else:
+			return I, ('I', l, k-1)
+
+	#I1 row scores
+	for k in range(2, n):
+		insert_node_scores[1, k], insert_backtrack[1, k] = I_score_relation(1, k)
+
+	#D scores second column
+	for l in range(2, m):
+		delete_node_scores[l, 1], delete_backtrack[l, 1] = D_score_relation(l, 1)
+
+	#all other nodes
+	for l in range(2, m):
+		for k in range(2, n):
+			match_node_scores[l, k], match_backtrack[l, k] = M_score_relation(l , k)
+			delete_node_scores[l, k], delete_backtrack[l, k] = D_score_relation(l, k)
+			insert_node_scores[l, k], insert_backtrack[l, k] = I_score_relation(l, k)
+
+	#score for end node
+	#backtrack
+	backtrack = []
+	M = match_node_scores[m-1, n-1] + np.log(1*transition_matrix['M' + str(m-1)]['E'])
+	D = delete_node_scores[m-1, n-1] + np.log(1*transition_matrix['D' + str(m-1)]['E'])
+	I = insert_node_scores[m-1, n-1] + np.log(1*transition_matrix['I'+ str(m-1)]['E'])
+	score = max(M, D, I)
+	l, k = m-1, n-1
+
+	if score == M:
+		backtrack.append('M' + str(m-1))
+		current_node, l , k = match_backtrack[l, k]
+
+	elif score == D:
+		backtrack.append('D' + str(m-1))
+		current_node, l, k = delete_backtrack[l, k]
+
+	else:
+		backtrack.append('I' + str(m-1))
+		current_node, l, k = insert_backtrack[l, k]	
+
+	backtrack_matrix = []
+
+	while True:
+
+		if current_node == 'M':
+			backtrack.append('M' + str(l))
+			backtrack_matrix = match_backtrack
+
+		elif current_node == 'D':
+			backtrack.append('D' + str(l))
+			backtrack_matrix = delete_backtrack
+
+		elif current_node == 'I':
+			backtrack.append('I' + str(l))
+			backtrack_matrix = insert_backtrack
+
+		if backtrack_matrix[l, k] == None:
+			break
+
+		current_node, l, k = backtrack_matrix[l, k]
+
+	backtrack = backtrack[::-1]
+
+	return ' '.join(backtrack)
+'''
+
+'''
+file = 'alignment.txt'
+x = 'ACDCAECAEDEDCAAEEDDEEBBCCEAADAEBCCADAADCCDCBCAEDE'
+strings = input_alignment(file)
+pseudocount = 0.01
+alphabet = 'A B C D E'.split(' ')
+theta = 0.278
+nodes_match, nodes_delete, nodes_insert, states, transition_matrix, emission_matrix  = profile_hmm(theta, strings, alphabet, pseudocount)
+#print(transition_matrix, emission_matrix)
+print(sequence_alignment_with_profile_hmm(nodes_match, nodes_delete, nodes_insert, states, alphabet, transition_matrix, emission_matrix, x))
+'''
+'''
 file = 'alignment.txt'
 strings = input_alignment(file)
 pseudocount = 0.01
 alphabet = 'A B C D E'.split(' ')
-theta = 0.38
-states, transition_matrix, emission_matrix = profile_hmm(theta, strings, alphabet, pseudocount)
+theta = 0.359
+nodes_match, nodes_delete, nodes_insert, states, transition_matrix, emission_matrix = profile_hmm(theta, strings, alphabet, pseudocount)
 
 #HOW DO I FORMAT THIS UGHHHHHHUHHSDKHDKJHKSHKH K SO IRRITATTINGGGGGGGJSGDJHGJGHJbjhn!!!!
 value = ''
@@ -350,6 +706,7 @@ for state in states:
 	l += '\t'.join([str(emission_matrix[state][x]) for x in alphabet])
 	value += l
 print(value)
+'''
 
 '''
 sequence = 'zxzyyxyxyxyyyyxzzzzyyzzxzzxxzyyzzyzzxxyxzyxyyyyzxzzyzzzyyxzyxxyxyzxyxzzyyyxyyzzyyzxzxzyzyxyxyzyxzyzz'
