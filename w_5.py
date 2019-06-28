@@ -136,6 +136,68 @@ def viterbi_learning(iterations, sequence, alphabet, states, transition_matrix, 
 		#print(transition_matrix, emission_matrix)
 	return transition_matrix, emission_matrix
 
+
+def soft_decoding(sequence, transition_matrix, emission_matrix, states, alphabet):
+	m, n = len(sequence), len(states)
+	forward = np.empty(shape = (m, n), dtype = float)
+	backward = np.empty(shape = (m, n), dtype = float)
+	cp = np.empty(shape = (m, n), dtype = float)
+	#print(transition_matrix, emission_matrix)
+	#print(states, alphabet)
+
+	#calculating forward values
+	for i in range(len(states)):
+		forward[0, i] = emission_matrix[states[i]][sequence[0]]/len(states)
+	for i in range(1, len(sequence)):
+		for j in range(len(states)):
+			emission_value = emission_matrix[states[j]][sequence[i]]
+			s = 0
+			for k in range(len(states)):
+				s += transition_matrix[states[k]][states[j]]*forward[i-1, k]
+			#print(s)
+			forward[i, j] = emission_value*s
+
+	#calculate sink value
+	sink = 0
+	for value in forward[len(sequence) - 1]:
+		sink += value
+
+	#calculate backward values
+	for i in range(len(states)):
+		backward[len(sequence) - 1, i] = 1
+	for i in range(1, len(sequence)):
+		for j in range(len(states)):
+			bk = 0
+			for k in range(len(states)):
+				weight  = emission_matrix[states[k]][sequence[-i]]*transition_matrix[states[j]][states[k]]
+				bk += backward[-i, k]*weight
+			backward[-i-1, j] = bk
+
+	#calculating conditional probabilities
+	for i in range(len(sequence)):
+		for j in range(len(states)):
+			cp[i, j] = my_round((forward[i, j]*backward[i, j])/sink, 4)
+	#print(forward, '\n', backward, '\n', sink)
+
+	return cp
+
+sequence = 'yyzxxxzxxz'
+file = 'transition.txt'
+states = 'A B'.split(' ')
+alphabet = 'x y z'.split(' ')
+transition_matrix = input_transition(file, states)
+file = 'emission.txt'
+emission_matrix = input_emission(file, states, alphabet)
+cp = soft_decoding(sequence, transition_matrix, emission_matrix, states, alphabet)
+for state in states:
+	print(state, end = '\t')
+print('')
+for l in cp:
+	for i in l:
+		print(i, end = '\t')
+	print(' ')
+
+'''
 sequence = 'yxxzxxxyxyzxxxxzzxxxyxyzxzzxxxzxyzxxzyyyxzxzxzzyyxyzzzyzyxyxzxxzyyxyyyyzyxxyzyyzyxzyyyyxxzxzzzyyyxzx'
 file = 'transition.txt'
 states = 'A B'.split(' ')
@@ -158,6 +220,18 @@ for state in states:
 	l += '\t'.join([str(emission_matrix[state][x]) for x in alphabet])
 	value += l
 print(value)
+'''
+
+
+
+
+
+
+
+
+
+
+
 
 
 def input_alignment(file):
@@ -442,7 +516,7 @@ def profile_hmm(theta, strings, alphabet, pseudocount = 0):
 
 	
 
-		print(states)
+		#print(states)
 		m, n = len(states), len(states)
 		for i in range(m-1):
 			a = int(min((i+1)/3*3+1, n))
@@ -462,24 +536,6 @@ def profile_hmm(theta, strings, alphabet, pseudocount = 0):
 			if s != 0:
 				for state_ in states:
 					transition_matrix[state][state_] = my_round(transition_matrix[state][state_]/s, 3)
-		'''
-
-
-		'''
-		for state in transition_matrix:
-			s = 0
-			for edge in G.edges(state):
-				#print(state, '|', edge)
-				transition_matrix[edge[0]][edge[1]] += pseudocount
-				s += transition_matrix[edge[0]][edge[1]]
-			if s!= 0:
-				for state_ in transition_matrix[state]:
-					transition_matrix[state][state_] = my_round(transition_matrix[state][state_]/s, 3)
-					if transition_matrix[state][state_] == 0.0:
-						transition_matrix[state][state_] = int(transition_matrix[state][state_])
-		for edge in transition_matrix['E']:
-			transition_matrix['E'][edge] = int(transition_matrix['E'][edge])
-		'''
 
 	else:
 		for state in emission_matrix:
@@ -671,7 +727,7 @@ def sequence_alignment_with_profile_hmm(nodes_match, nodes_delete, nodes_insert,
 	backtrack = backtrack[::-1]
 
 	return ' '.join(backtrack)
-'''
+
 
 '''
 file = 'alignment.txt'
