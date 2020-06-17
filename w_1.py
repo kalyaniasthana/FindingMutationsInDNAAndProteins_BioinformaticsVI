@@ -1,4 +1,3 @@
-import networkx as nx
 import copy
 import collections
 import sys

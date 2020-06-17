@@ -180,7 +180,7 @@ def soft_decoding(sequence, transition_matrix, emission_matrix, states, alphabet
 	#print(forward, '\n', backward, '\n', sink)
 
 	return cp
-
+'''
 sequence = 'yyzxxxzxxz'
 file = 'transition.txt'
 states = 'A B'.split(' ')
@@ -196,6 +196,7 @@ for l in cp:
 	for i in l:
 		print(i, end = '\t')
 	print(' ')
+'''
 
 '''
 sequence = 'yxxzxxxyxyzxxxxzzxxxyxyzxzzxxxzxyzxxzyyyxzxzxzzyyxyzzzyzyxyxzxxzyyxyyyyzyxxyzyyzyxzyyyyxxzxzzzyyyxzx'
@@ -221,15 +222,6 @@ for state in states:
 	value += l
 print(value)
 '''
-
-
-
-
-
-
-
-
-
 
 
 
@@ -548,8 +540,6 @@ def profile_hmm(theta, strings, alphabet, pseudocount = 0):
 				if transition_matrix[state][state_] == 0.0:
 					transition_matrix[state][state_] = int(transition_matrix[state][state_])
 
-	
-
 
 
 	return nodes_match, nodes_delete, nodes_insert, states, transition_matrix, emission_matrix
@@ -731,11 +721,11 @@ def sequence_alignment_with_profile_hmm(nodes_match, nodes_delete, nodes_insert,
 
 '''
 file = 'alignment.txt'
-x = 'ACDCAECAEDEDCAAEEDDEEBBCCEAADAEBCCADAADCCDCBCAEDE'
+x = 'EEBEABDCEEABCCCEEBDEDCADEDACCDCBBEECDBDACABDADCBEE'
 strings = input_alignment(file)
 pseudocount = 0.01
 alphabet = 'A B C D E'.split(' ')
-theta = 0.278
+theta = 0.359
 nodes_match, nodes_delete, nodes_insert, states, transition_matrix, emission_matrix  = profile_hmm(theta, strings, alphabet, pseudocount)
 #print(transition_matrix, emission_matrix)
 print(sequence_alignment_with_profile_hmm(nodes_match, nodes_delete, nodes_insert, states, alphabet, transition_matrix, emission_matrix, x))

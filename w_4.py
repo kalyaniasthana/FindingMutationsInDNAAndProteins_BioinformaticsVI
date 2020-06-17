@@ -1,7 +1,6 @@
 
 import networkx as nx
 
-
 def input_transition(file, x):
 	transition_matrix = {}
 
@@ -16,12 +15,10 @@ def input_transition(file, x):
 		for line in f:
 			l = line.strip()
 			l = l.split('\t')
-			if l[0] == 'A':
-				transition_matrix[l[0]]['A'] = float(l[1])
-				transition_matrix[l[0]]['B'] = float(l[2])
-			else:
-				transition_matrix[l[0]]['A'] = float(l[1])
-				transition_matrix[l[0]]['B'] = float(l[2])
+			j = 0
+			for i in range(1, len(l)):
+				transition_matrix[l[0]][x[j]] = float(l[i])
+				j += 1
 
 	return transition_matrix
 
@@ -218,7 +215,7 @@ def outcome_likelihood_problem(sequence, emission_matrix, transition_matrix, sta
 
 	return G.nodes[number_of_nodes - 1]['forward']
 
-
+'''
 sequence = 'zyzxzyxxxxzyzyxzzyxyxyyzzxzzzxzxxyzxyzzyxzyzxzyzzzxxyxzzzyzxzxzzyxzzzxxzxxyyzxyzxxzyzzyzyxyxyzxyxzzy'
 file = 'transition.txt'
 states = 'A B'.split(' ')
@@ -227,7 +224,7 @@ transition_matrix = input_transition(file, states)
 file = 'emission.txt'
 emission_matrix = input_emission(file, states, alphabet_x)
 print(outcome_likelihood_problem(sequence, emission_matrix, transition_matrix, states, alphabet_x))
-
+'''
 '''
 sequence = 'yyxxxzzyzyzxzyyyxyyxzzyzyzxxzzxyzyzxxxzyzzxxyxyzxyxyxzxzyyzyxyxzxyzzyzxzyzxzzxzyzzxxxyxyyyxyyzzzyxyx'
 file = 'transition.txt'
